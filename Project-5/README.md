@@ -10,7 +10,10 @@ After the above steps, a panoramic view by “stitching” together five (or mor
 ### Step 1: Feature Point Extraction
 Use SIFT or SURF and a force matcher that directly compares the feature vectors of interest points.
 
-![SIFT](examples/img01_SIFT.jpeg)
+<center>
+        <img src="examples/img01_SIFT.jpeg"
+         alt="SIFT Result" width="400">
+</center>
 
 ### Step 2: Outlier rejection
 Random Sample Consistency (RANSAC) is a method for estimating mathematical models from data sets containing outliers.
@@ -31,32 +34,37 @@ To implement the RANSAC algorithm, we need to determine several parameters.
 
 Then, we keep the homography that has most inliers and the indices of those correspondences.
 
-<center>
-    <img src="examples/img01_RANSAC_inliers.jpg"
-         alt="RANSAC_inliers" width="200">
-    <figcaption>Inliers</figcaption>
-</center>
 
-<center>
-    <img src="examples/img01_RANSAC_outliers.jpg"
-         alt="RANSAC_outliers" width="200">
-    <figcaption>Outliers</figcaption>
-</center>
+<div align="center">
+<img src=examples/img01_RANSAC_inliers.jpg alt="RANSAC_inliers" width="300" >
+<p>Inliers</p>
+</div>
 
-### Step 3: Homography estimation 
+<div align="center">
+<img src=examples/img01_RANSAC_outliers.jpg alt="RANSAC_outliers" width="300" >
+<p>Outliers</p>
+</div>
+
+### Step 3: Homography refinement
+In this step, either LLS or LM can be utilized to refine Homography.
+
+### Step 3 - 1: LLS
 Use a Linear Least-Squares method with the help of inliers obtained from the previous step to estimate the homography. 
 
 ****
 **Linear Least-Squares Minimization:** A set of correspondences gives you an over-determined system of homogeneous equations, i.e., $Ax = 0$. The SVD of $A$ would give you $A = UDV^T$. The required solution is the last column vector of $V$ which will be the eigenvector of $A^TA$ corresponding to the smallest singluar value in $D$.
 ****
 
-In this project, linear least-squares minimization is addressed with inhomogeneous equations. Compared to homogeneous equations, we assume arbitrarily that $h_{33} = 1$. This gives us two equations for one correspondence $$\begin{bmatrix} 0 & 0 & 0 & -w'x & -w'y & -w'w & y'x & y'y \\ 
-    w'x & w'y & w'w & 0 & 0 & 0 & -x'x & -x'y \end{bmatrix} \begin{bmatrix} 
-    h_{11} \\ h_{12} \\ h_{13} \\ h_{21} \\ h_{22} \\ h_{23} \\ h_{31} \\ h_{32} \end{bmatrix} = \begin{bmatrix} -y'w \\ x'w \end{bmatrix}$$
-    
+In this project, linear least-squares minimization is addressed with inhomogeneous equations. Compared to homogeneous equations, we assume arbitrarily that $h_{33} = 1$. This gives us two equations for one correspondence 
+
+<div align="center">
+<img src=examples/equation.png alt="LLM" width="500" >
+<p>Outliers</p>
+</div>
+
 If we have more than four correspondences, we have an over-determined system of equations $A\vec{h} = \vec{b}$. The best choice for $\vec{h}$ will minimize $\| \vec{b} - A\vec{h} \|$. Since $A^T(\vec{b} - A\vec{h}) = \vec{0}$, the linear least squared solution for $\vec{h}$ must satisfy $(A^TA)\vec{h} = A^T\vec{b}$, which yields $\vec{h} = (A^TA)^{-1}A^T\vec{b} = A^+\vec{b}$ where $A^+$ is known as pseudoinverse of $A$.
 
-### Step 4: Homography Refinement
+### Step 3 - 2: LM
 Use the Nonlinear Least-Squares approach for homography refinement. 
 
 ****
