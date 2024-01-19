@@ -5,6 +5,7 @@
 #include <Eigen/Dense>
 #include <random>
 #include <cmath>
+#include <thread>
 
 using namespace std;
 using namespace cv; 
@@ -194,8 +195,23 @@ void projectOneImage(cv::Mat pano_img, const cv::Mat src_img, const cv::Mat H, c
     cout << "\nProject image done.\n";
 }
 
+void calculateHomographies(cv::Mat& H_01, cv::Mat& H_12, cv::Mat& H_23, cv::Mat& H_34, const cv::Mat& img0, const cv::Mat& img1, const cv::Mat& img2, const cv::Mat& img3, const cv::Mat& img4) {
+    H_01 = getRefinedHomographyFromImagePair(img0, img1);
+    H_12 = getRefinedHomographyFromImagePair(img1, img2);
+    H_23 = getRefinedHomographyFromImagePair(img2, img3);
+    H_34 = getRefinedHomographyFromImagePair(img3, img4);
+}
 
-int main(){
+void projectImages(cv::Mat& pano_img, const cv::Mat& img0, const cv::Mat& img1, const cv::Mat& img2, const cv::Mat& img3, const cv::Mat& img4, const cv::Mat& H_01, const cv::Mat& H_12, const cv::Mat& H_23, const cv::Mat& H_34) {
+    img2.copyTo(pano_img(cv::Rect(img_width*int((num_images)/2), 0, img_width, img_height)));
+    projectOneImage(pano_img, img1, H_12, false);
+    projectOneImage(pano_img, img0, H_01 * H_12, false);
+    cv::Mat H_23_inv = H_23.inv(); 
+    projectOneImage(pano_img, img3, H_23_inv, false);
+    projectOneImage(pano_img, img4, (H_23 * H_34).inv(), false);
+}
+
+int main() {
 
     cout << "\nStarting Project 5 ... \n";
     num_images = 5;
@@ -216,25 +232,19 @@ int main(){
     img_height = img1.size().height; // 1328
     pano_img_width = img_width * num_images; // 2241
 
-    cv::Mat H_01 = getRefinedHomographyFromImagePair(img0, img1);
-    cv::Mat H_12 = getRefinedHomographyFromImagePair(img1, img2);
-    cv::Mat H_23 = getRefinedHomographyFromImagePair(img2, img3);
-    cv::Mat H_34 = getRefinedHomographyFromImagePair(img3, img4);
-
-    // Create a new image with the total width of the two images
-    Mat pano_img(img_height, pano_img_width, CV_8UC3, cv::Scalar(0, 0, 0));
-
-    // Place middle image
-    img2.copyTo(pano_img(Rect(img_width*int((num_images)/2), 0, img_width, img_height)));
-    cout << "\nMiddle img copy to middle\n";
-
-    // Project images
-    projectOneImage(pano_img, img1, H_12, false);
-    projectOneImage(pano_img, img0, H_01 * H_12, false);
-    projectOneImage(pano_img, img3, H_23_inv, false);
-    projectOneImage(pano_img, img4, (H_23 * H_34).inv(), false);
+    cv::Mat H_01, H_12, H_23, H_34;
+    cv::Mat pano_img(img_height, pano_img_width, CV_8UC3, cv::Scalar(0, 0, 0));
+    
+    // Thread for calculating homographies
+    std::thread homographyThread(calculateHomographies, std::ref(H_01), std::ref(H_12), std::ref(H_23), std::ref(H_34), std::cref(img0), std::cref(img1), std::cref(img2), std::cref(img3), std::cref(img4));
+    homographyThread.join();
+    
+    // Thread for projecting images
+    std::thread projectionThread(projectImages, std::ref(pano_img), std::cref(img0), std::cref(img1), std::cref(img2), std::cref(img3), std::cref(img4), std::cref(H_01), std::cref(H_12), std::cref(H_23), std::cref(H_34));
+    projectionThread.join();
 
     cv::imwrite("Pano_image.png", pano_img);
     
     return 0;
 }
+
